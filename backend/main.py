@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Optional, List
-import os, re, smtplib, logging
+import os, re, smtplib, logging, asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from fastapi import FastAPI, HTTPException, Depends, Query, File, UploadFile, Form
@@ -120,7 +120,51 @@ async def lifespan(app: FastAPI):
             print("  ✅ Added is_ai_draft_edited column to tickets table.")
 
     print("✅ Database tables are ready.")
+
+    # ── Background email polling (Railway keeps the process alive) ──
+    EMAIL_POLL_INTERVAL = int(os.getenv("EMAIL_POLL_INTERVAL", "300"))  # seconds (5 min)
+    ENABLE_EMAIL_POLLING = os.getenv("ENABLE_EMAIL_POLLING", "true").lower() == "true"
+
+    async def _background_email_poller():
+        """Periodically fetch emails via IMAP in the background."""
+        import time as _time
+        await asyncio.sleep(10)  # let the server fully start
+        logger.info(f"📧 Background email poller started (interval={EMAIL_POLL_INTERVAL}s)")
+        while True:
+            try:
+                # Call the same logic as /fetch_emails but via internal function
+                import requests as _req
+                resp = _req.post(
+                    "http://127.0.0.1:8000/fetch_emails?max_emails=10",
+                    timeout=120,
+                )
+                if resp.ok:
+                    data = resp.json()
+                    fetched = data.get("fetched", 0)
+                    if fetched > 0:
+                        logger.info(f"📬 Background poller: {fetched} new email(s) processed")
+                else:
+                    logger.warning(f"📧 Background poller: API returned {resp.status_code}")
+            except Exception as e:
+                logger.warning(f"📧 Background poller error: {e}")
+            await asyncio.sleep(EMAIL_POLL_INTERVAL)
+
+    poll_task = None
+    if ENABLE_EMAIL_POLLING:
+        poll_task = asyncio.create_task(_background_email_poller())
+        logger.info("📧 Email polling enabled (set ENABLE_EMAIL_POLLING=false to disable)")
+    else:
+        logger.info("📧 Email polling disabled")
+
     yield
+
+    # Cleanup: cancel background task on shutdown
+    if poll_task:
+        poll_task.cancel()
+        try:
+            await poll_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(

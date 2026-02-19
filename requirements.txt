@@ -1,8 +1,23 @@
-streamlit
-streamlit-autorefresh
+# ── Backend (FastAPI + AI) ──
+fastapi
+uvicorn[standard]
 python-dotenv
 langchain
 langchain-groq
 langchain-core
 pydantic
+sqlalchemy
+psycopg2-binary
+python-multipart
+groq
 requests
+
+# ── OCR ──
+easyocr
+Pillow
+numpy
+
+# ── Frontend (Streamlit Dashboard) ──
+streamlit
+streamlit-autorefresh
+plotly

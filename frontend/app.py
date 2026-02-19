@@ -7,6 +7,7 @@ import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 import requests
 import re
+import os
 import time as _time
 from datetime import datetime, timedelta
 from collections import Counter
@@ -16,7 +17,7 @@ import plotly.express as px
 # ═══════════════════════════════════════════════════════
 #  CONFIG
 # ═══════════════════════════════════════════════════════
-API = "http://127.0.0.1:8000"
+API = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(
     page_title="Finance Triage",
