@@ -6,40 +6,41 @@
 
 set -e
 
-echo "🚀 Starting Finance Support Triage Agent on Railway..."
-echo "   PORT=$PORT"
+# Railway injects PORT — default to 8501 for local testing
+export PORT=${PORT:-8501}
 
-# 1. Start FastAPI backend on port 8000 (internal, not exposed to internet)
-echo "📦 Starting FastAPI backend on :8000 ..."
+echo "🚀 Starting Finance Support Triage Agent..."
+echo "   PUBLIC PORT=$PORT (Streamlit)"
+echo "   INTERNAL PORT=8000 (FastAPI)"
+
+# 1. Start FastAPI backend on port 8000 (internal only)
+echo "📦 Starting FastAPI backend..."
 cd /app/backend
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1 &
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1 &
 BACKEND_PID=$!
 
-# Wait for backend to be ready
-echo "⏳ Waiting for backend to start..."
+# 2. Wait for backend to be healthy
+echo "⏳ Waiting for backend..."
 for i in $(seq 1 30); do
-    if curl -s http://127.0.0.1:8000/ > /dev/null 2>&1; then
+    if curl -sf http://127.0.0.1:8000/ > /dev/null 2>&1; then
         echo "✅ Backend is ready!"
         break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "❌ Backend failed to start after 30s"
+        exit 1
     fi
     sleep 1
 done
 
-# 2. Start Streamlit frontend on $PORT (exposed by Railway)
-echo "🖥️  Starting Streamlit frontend on :${PORT:-8501} ..."
+# 3. Start Streamlit frontend on $PORT (exposed by Railway)
+echo "🖥️  Starting Streamlit on port $PORT..."
 cd /app
-streamlit run frontend/app.py \
-    --server.port "${PORT:-8501}" \
-    --server.address 0.0.0.0 \
-    --server.headless true \
-    --browser.gatherUsageStats false \
-    --server.fileWatcherType none &
-FRONTEND_PID=$!
-
-echo "✅ Both services started. Backend PID=$BACKEND_PID, Frontend PID=$FRONTEND_PID"
-
-# Wait for either process to exit (if one dies, stop everything)
-wait -n $BACKEND_PID $FRONTEND_PID
-echo "❌ A process exited. Shutting down..."
-kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
-exit 1
+exec streamlit run frontend/app.py \
+    --server.port=$PORT \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false \
+    --browser.gatherUsageStats=false \
+    --server.fileWatcherType=none

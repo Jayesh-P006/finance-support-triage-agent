@@ -14,12 +14,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY . .
 
-# Make start script executable
-RUN chmod +x start.sh
-
-# Railway sets $PORT at runtime (default 8501 for local testing)
-ENV PORT=8501
-
-EXPOSE $PORT
+# Make start script executable (fix Windows line endings too)
+RUN apt-get update && apt-get install -y --no-install-recommends dos2unix \
+    && dos2unix start.sh \
+    && chmod +x start.sh \
+    && apt-get purge -y dos2unix && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 CMD ["./start.sh"]

@@ -12,7 +12,7 @@ venv/
 .venv/
 env/
 
-# Environment / secrets
+# Environment / secrets (Railway injects env vars directly)
 .env
 .env.example
 backend/.env
@@ -30,10 +30,8 @@ backend/.env
 .DS_Store
 Thumbs.db
 
-# Docs / non-essential
-README.md
-*.md
-
 # Streamlit Cloud files (not needed on Railway)
 .streamlit/secrets.toml
 streamlit_app.py
+
+# Keep .streamlit/config.toml (theme + settings) — do NOT exclude it
